@@ -1,14 +1,12 @@
-package com.shinkson47.ScalaSnake;
+package com.shinkson47.OPEXTemp;
 
-import java.lang.reflect.Array;
-
-import backend.errormanagement.EMSHelper;
+import com.shinkson47.OPEX.backend.errormanagement.EMSHelper;
 
 /**
  * temporary container for developing java tools
- * that not yet implemented in the jgel toolbox.
+ * that not yet implemented in the OPEX toolbox.
  */
-public class tempjgeltools {
+public class tempOPEXtools {
 	
 	/**
 	 * returns the larger of two integers.

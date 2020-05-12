@@ -1,4 +1,4 @@
-package com.shinkson47.ScalaSnake
+package com.shinkson47.ScalaGame.Game
 
 class Player {
   var posX: Int = 0;

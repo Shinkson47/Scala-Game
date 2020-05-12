@@ -1,11 +1,14 @@
-package com.shinkson47.ScalaSnake
+package com.shinkson47.ScalaGame.Game
 
-
+import com.shinkson47.OPEX.backend.errormanagement.EMSHelper
+import com.shinkson47.OPEX.backend.runtime.console.OPEXConsole
+import com.shinkson47.OPEXTemp.{scalaToolBox, tempOPEXtools}
+import com.shinkson47.ScalaGame.Client.scalaGame
+import com.shinkson47.ScalaGame.Test.GameTest
+import org.junit.runner.Result
+import org.junit.runner.notification.RunListener
 
 import scala.util.control.Breaks._
-
-import backend.errormanagement.EMSHelper
-import backend.runtime.console.JGELConsole
 
 /**
  * This class holds an instance of a simple game where 
@@ -48,7 +51,6 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
    * Default <<null>> mask value for player positions
    */
   private final val NULL_PLAYER_POSITION = -1;
- 
   
   /* This code is executed as part of the constructor. 
    * It uses the list of walls provided to initialise the walls in the field array by setting given coordinates to true.
@@ -56,6 +58,7 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
    */
   wall.foreach(w => field(w._1)(w._2)=true)
   bounty.foreach(w => bounties(w._1)(w._2)=w._3)
+  render()
   
   /**
    * Repeatedly run a sequence of commands. For example:
@@ -300,10 +303,10 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
     val disY = calcDistance(playerY, saveY) + 1;
     if (disX * disY < BOUNTY_TOLLERANCE) return;            //If rect does not meet tollerence for collection, return.
     
-    var goalx = tempjgeltools.largerOf(playerX, saveX);     //Determine relative correlation values for itteration
-    var goaly = tempjgeltools.largerOf(playerY, saveY);
-    var startx = tempjgeltools.smallerOf(playerX, saveX);
-    var starty = tempjgeltools.smallerOf(playerY, saveY);
+    var goalx = tempOPEXtools.largerOf(playerX, saveX);     //Determine relative correlation values for itteration
+    var goaly = tempOPEXtools.largerOf(playerY, saveY);
+    var startx = tempOPEXtools.smallerOf(playerX, saveX);
+    var starty = tempOPEXtools.smallerOf(playerY, saveY);
     
     
     if (!scalaToolBox.checkBoundaries[Boolean](startx, starty, field) || !scalaToolBox.checkBoundaries(goalx, goaly, field)) {
@@ -387,10 +390,10 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
     var ix: Int = playerX;                //Open scope of indexables for boundary testing.
     var iy: Int = playerY;
     
-    var yifrom: Int = tempjgeltools.smallerOf(iy, y); //dynamic bi-directional itteration start and end points.
-    var yito: Int = tempjgeltools.largerOf(iy, y);    //note that these values declare the itteration for 'path finding', and not the start and end points of travel.
-    var xifrom: Int = tempjgeltools.smallerOf(ix, x);
-    var xito: Int = tempjgeltools.largerOf(ix, x);
+    var yifrom: Int = tempOPEXtools.smallerOf(iy, y); //dynamic bi-directional itteration start and end points.
+    var yito: Int = tempOPEXtools.largerOf(iy, y);    //note that these values declare the itteration for 'path finding', and not the start and end points of travel.
+    var xifrom: Int = tempOPEXtools.smallerOf(ix, x);
+    var xito: Int = tempOPEXtools.largerOf(ix, x);
     
     breakable{ for (ity <- yifrom to yito) {
       if (!boundCheck(ix, iy)) break;      //break from horizontal PF if no more horiz movement is possible.
@@ -426,7 +429,12 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
   }
   
   def render(){
-    JGELConsole.Write("========================");
+
+
+    if (scalaGame.clientWindow != null){
+      scalaGame.clientWindow.txtTerminal.setText(null);
+      scalaGame.clientWindow.txtTerminal.append("Score: " + getScore());}
+
     for (y <- 0 to 9){
       var line: String = "";
       for (x <- 0 to 9){
@@ -440,17 +448,17 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
         } else if (field(x)(y)) {
           line += "[w]"
         } else {
-          line += "[~]"
+          line += "[  ]"
         }
         }}
-      JGELConsole.Write(line);
-      }  
+      if (scalaGame.clientWindow != null){
+      scalaGame.clientWindow.txtTerminal.append("\n" + line);}
+    }
   } 
 }
 
 /**
  * This object returns a standard instance of Game
- *
  */
 object GameProducer{
   
@@ -463,9 +471,9 @@ object GameProducer{
  	 * - the player in position 0,0
 	 */
   def initialiseTest1(): Game = {
-    Snake.assertInitialised();
-    Snake.gameSuper = new Game(List((3,0),(3,1),(3,2)), List((4,1,(x: Int)=>x+5),(3,3,(x: Int)=>x+10)), 0, 0)
-    return Snake.gameSuper;
+    scalaGame.assertInitialised();
+    scalaGame.gameSuper = new Game(List((3,0),(3,1),(3,2)), List((4,1,(x: Int)=>x+5),(3,3,(x: Int)=>x+10)), 0, 0)
+    return scalaGame.gameSuper;
   }
 
   /**
@@ -476,9 +484,9 @@ object GameProducer{
  	 * - the player in position 3,2
 	 */
   def initialiseTest2(): Game = {
-    Snake.assertInitialised();
-    Snake.gameSuper = new Game(List((3,3),(3,4),(3,5),(5,3),(5,4),(5,5)), List((4,4,(x: Int)=>x+1),(6,3,(x: Int)=>if(x == 0) x+1 else x+3)), 3, 2)
-    return Snake.gameSuper;
+    scalaGame.assertInitialised();
+    scalaGame.gameSuper = new Game(List((3,3),(3,4),(3,5),(5,3),(5,4),(5,5)), List((4,4,(x: Int)=>x+1),(6,3,(x: Int)=>if(x == 0) x+1 else x+3)), 3, 2)
+    return scalaGame.gameSuper;
   }
 
   /**
@@ -489,8 +497,54 @@ object GameProducer{
  	 * - the player in position 4,1
 	 */
   def initialiseTest3(): Game = {
-    Snake.assertInitialised();
-    Snake.gameSuper = new Game(List((3,0),(3,1),(3,2)), List((4,1,(x: Int)=>x+5),(3,3,(x: Int)=>x+10)), 4, 1)
-    return Snake.gameSuper;
+    scalaGame.assertInitialised();
+    scalaGame.gameSuper = new Game(List((3,0),(3,1),(3,2)), List((4,1,(x: Int)=>x+5),(3,3,(x: Int)=>x+10)), 4, 1)
+    return scalaGame.gameSuper;
   }
+}
+
+/**
+ * Keybinds are made to this static parser.
+ *
+ * Binding keys to a game instance would require rebinding with each new game instance.
+ * Once bound here, the static reference invokes the current game instance.
+ */
+object staticKeyParser {
+  import org.junit.runner.JUnitCore
+  val junit = new JUnitCore
+
+  def au() {
+    scalaGame.gameSuper.au()
+  }
+
+  def ad() {
+    scalaGame.gameSuper.ad()
+  }
+
+  def al() {
+    scalaGame.gameSuper.al()
+  }
+
+  def ar() {
+    scalaGame.gameSuper.ar()
+  }
+
+  /*
+  Engine does not feature junit testing, so this method exists instead, using the currently unprotected internalLog method
+  to act as if it were inside of OPEX.
+   */
+  /**
+   * Use JUnit library at runtime to execute the test class.
+   */
+  def runJUnit() {
+    junit.addListener(new RunListener{
+      override def testRunFinished(res: Result) = {
+        OPEXConsole.internalLog("JUnit test completed. passed: " + res.wasSuccessful() + ", " + res.getFailureCount + " failures");
+        scalaGame.clientWindow.txtJUnit.setText("passed junit test: " + res.wasSuccessful() + ", " + res.getFailureCount + " failures");
+    }})
+    OPEXConsole.internalLog("User invoked JUnit test.");
+    junit.run(classOf[GameTest])
+  }
+
+
 }

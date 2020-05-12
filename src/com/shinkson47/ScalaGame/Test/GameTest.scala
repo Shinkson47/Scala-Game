@@ -1,15 +1,15 @@
-package com.shinkson47.ScalaSnake
+package com.shinkson47.ScalaGame.Test
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import com.shinkson47.ScalaGame.Game.{Game, GameProducer}
+import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.Test
 
 class GameTest {
-    
+
   @Test def test_00_ar {
     var game: Game = GameProducer.initialiseTest1()
     game.ar() 
-    assertEquals((1,0), game.getPlayerPos()) 
+    assertEquals((1,0), game.getPlayerPos())
   }
 
   @Test def test_01_ar {
