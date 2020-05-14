@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="OPEX (3)">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/src/com/shinkson47/OPEX/OPEX.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/src/com/shinkson47/OPEX/OPEX.jar!/" />
+    </SOURCES>
+  </library>
+</component>

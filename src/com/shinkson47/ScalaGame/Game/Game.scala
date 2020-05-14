@@ -3,7 +3,7 @@ package com.shinkson47.ScalaGame.Game
 import com.shinkson47.OPEX.backend.errormanagement.EMSHelper
 import com.shinkson47.OPEX.backend.runtime.console.OPEXConsole
 import com.shinkson47.OPEXTemp.{scalaToolBox, tempOPEXtools}
-import com.shinkson47.ScalaGame.Client.scalaGame
+import com.shinkson47.ScalaGame.Client.GameClient
 import com.shinkson47.ScalaGame.Test.GameTest
 import org.junit.runner.Result
 import org.junit.runner.notification.RunListener
@@ -199,21 +199,29 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
   }
  
   
-  /*
+  /**
    * Positively calculates difference between params
    * 
    *	-7, -10 = 3
    */
   def calcDistance(x$1: Int, x$2: Int): Int = {
     val diff = Math.abs(x$1-x$2);
-    if ((String.valueOf(diff).charAt(0) == '-')){
+    if ((String.valueOf(diff).charAt(0) == '-'))
       return 0 - diff;
-    }
-    return diff;
+    diff;
   }
-  
-  //The methods beyond this point (aside to those in GameProducer which is a separate task) are more complex than those above.
-  
+
+  /**
+   * Closes the gap between two values by 1.
+   * positively calculated distances regardless of param's relative polarity.
+   *
+   * -7, -10 = 2
+   *
+   * @return positive distance between params, -1.
+   */
+  def closeCorrelation(x$1: Int, x$2: Int): Int = calcDistance(x$1, x$2) - 1;
+
+
   /**
    * This moves the player according to a string. The string can contain the 
    * letters l, r, u, d representing left, right, up, down moves.  If
@@ -226,17 +234,17 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
   }
   
   def move(dir: Char, dis: Int){
-    var n = dis; //make writeable
+    var n = dis;                                                                                                        //make writeable
+    if (n <= 0) return;                                                                                                 //reject negative or nil movement
 
-    if (n <= 0){
-      return;    //reject negative or nil movement
-    }
-    
-    //Move player, temporarily
-    breakable {while (n > 0){
-      var prevX = playerX //store position before each movement, to revert if movement is impossible.
+    breakable {while (n > 0){                                                                                           //Move player, temporarily
+      var prevX = playerX                                                                                               //store position before each movement, to revert if movement is impossible.
       var prevY = playerY
-      dir match {
+
+      /*
+       * Perform movement
+       */
+      dir match {                                                                                                       //Move player based on the char provided.
         case 'l' => {
           if (playerX <= 0) {break;}
           playerX -= 1;  
@@ -254,27 +262,34 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
           playerY += 1;
         }
         case _ => {
-           EMSHelper.handleException(new Exception("Invalid direction supplied")); 
+           EMSHelper.handleException(new Exception("Invalid direction supplied"));                                      //No need to restore values; no move will be made with an invalid char.
            break;
         }
       }
       
       //bound check.
-      if (field(playerX)(playerY)) {
-        playerX = prevX;  //revert movement before returning.
+      if (field(playerX)(playerY)) {  //TODO Should use bound check method, but it broke everything so i rolled it back in git. this works for now.
+        playerX = prevX;                                                                                                //revert movement before returning.
         playerY = prevY;
-        return;           //reject continued movement; wall collision
+        break;                                                                                                          //reject continued movement; wall collision
       }
-      
-      checkBounty(); //Check for, and handle bounty.
-      n -= 1;
+
+      /*
+       * Player has made a valid movement.
+       */
+      checkBounty();                                                                                                    //Check for, and handle bounty.
+      n -= 1;                                                                                                           //Reduce count of moves remaining by one.
     }}
-    checkBounties();
-    render();
+    checkBounties();                                                                                                    //Check move for bounties to collect.
+    render();                                                                                                           //Render the new move.
   }
-  
+
+  /**
+   * Determins if the x,y provided are within bounds of the field, and in a place where a player can be.
+   *
+   * @return true if a player may exsist at position provided.
+   */
   def boundCheck(x: Int, y: Int):Boolean = (scalaToolBox.checkBoundaries[Boolean](x, y, field) && !field(x)(y))
-  
 
   /**
    * Identifies the maximum overall bounty in the game. This is the sum 
@@ -293,61 +308,65 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
     max
   }
 
+
+  /**
+   * Sets the savePos to the values of the parameters. This method is
+   * for testing only. Normally, save() is used for this purpose.
+   */
+  def setSavePos(saveX: Int, saveY: Int): Unit =  {
+    this.saveX=saveX
+    this.saveY=saveY
+  }
+
+
+  /**
+   * Sets the saved player position back to default null position.
+   */
+  def resetSave(): Unit = {
+    saveX = NULL_PLAYER_POSITION;
+    saveY = NULL_PLAYER_POSITION;
+  }
+
+
   /**
    * Checks if the rectangle defined by the current position and saved position 
    * covers nine or more positions. If yes, it collects bounties in it, increases the 
    * score, and erases the bounties.
    */
   def checkBounties() {
-    val disX = calcDistance(playerX, saveX) + 1;             //Calculate area of rect between save and player
+    val disX = calcDistance(playerX, saveX) + 1;                                                                        //Calculate area of rect between save and player
     val disY = calcDistance(playerY, saveY) + 1;
-    if (disX * disY < BOUNTY_TOLLERANCE) return;            //If rect does not meet tollerence for collection, return.
+    if (disX * disY < BOUNTY_TOLLERANCE) return;                                                                        //If rect does not meet tollerence for collection, return.
     
-    var goalx = tempOPEXtools.largerOf(playerX, saveX);     //Determine relative correlation values for itteration
+    var goalx = tempOPEXtools.largerOf(playerX, saveX);                                                                 //Determine relative correlation values for itteration
     var goaly = tempOPEXtools.largerOf(playerY, saveY);
     var startx = tempOPEXtools.smallerOf(playerX, saveX);
     var starty = tempOPEXtools.smallerOf(playerY, saveY);
     
     
     if (!scalaToolBox.checkBoundaries[Boolean](startx, starty, field) || !scalaToolBox.checkBoundaries(goalx, goaly, field)) {
-      return;                                               //Don't continue if either save or player is out of bounds of the array.
+      return;                                                                                                           //Don't continue if either save or player is out of bounds of the array.
     }
     
     while(startx <= goalx){
       var itty = starty;
-      while(itty <= goaly){                                //Collect all bounties within rect
+      while(itty <= goaly){                                                                                             //Collect all bounties within rect
         checkBounty(startx, itty);
         itty += 1
       }
       startx += 1;
     }
-    resetSave();                                           //Clear save once rectangle is spent.
-  }
-  
-  def resetSave(): Unit = {
-    saveX = NULL_PLAYER_POSITION;
-    saveY = NULL_PLAYER_POSITION;
+    resetSave();                                                                                                        //Clear save once rectangle is spent.
   }
 
-  
   /**
-   * Closes the gap between two values by 1.
-   * positively calculated distances regardless of param's relative polarity.
-   * 
-   * @apiNote -7, -10 = 2
-   *  
-   * @return the distance between params, -1.
+   * Checks for and handles any bounty at the player's current position.
    */
-    def closeCorrelation(x$1: Int, x$2: Int): Int = {
-      return calcDistance(x$1, x$2) - 1;
-    }
-  
-   def checkBounty() {
-      checkBounty(playerX, playerY)
-    }
-   
-   /**
-   * Checks if the current position is a bounty. A bounty exists if the cell is not
+  def checkBounty(): Unit = checkBounty(playerX, playerY)
+
+
+  /**
+   * Checks if x,y is a bounty. A bounty exists if the cell is not
    * set to null. If a bounty does exist, increase the score, 
    * and then erase the bounty, i.e. set it back to null.
    */
@@ -361,8 +380,6 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
        case e: ArrayIndexOutOfBoundsException => EMSHelper.handleException(e)
      }
   }
-  
-
 
   /**
    * This gives a string in the format for move, which collects the maximum bounty. No specific
@@ -374,7 +391,14 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
   def suggestSolution(): String = {
     ""
   }
-  
+
+  object Axis extends  {
+    val VERTICAL: Int = 1
+    val HORIZONTAL: Int = 2
+    val POSITIVE: Int = 3
+    val NEGATIVE: Int = 4
+  }
+
   /**
    * This gives a string in the format for move, which moves from the current position to 
    * position x,y. No specific requirements for the efficiency of the solution exist. The move
@@ -384,56 +408,188 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
    * x or y are outside the field, an empty string is returned as well.
    */
   def suggestMove(x: Int, y: Int): String = {
-    var move = "";                        //output result, will be appended to and returned.
-    if (boundCheck(x, y)){move}           //If out of bounds, return nothing.
-    
-    var ix: Int = playerX;                //Open scope of indexables for boundary testing.
-    var iy: Int = playerY;
-    
-    var yifrom: Int = tempOPEXtools.smallerOf(iy, y); //dynamic bi-directional itteration start and end points.
-    var yito: Int = tempOPEXtools.largerOf(iy, y);    //note that these values declare the itteration for 'path finding', and not the start and end points of travel.
-    var xifrom: Int = tempOPEXtools.smallerOf(ix, x);
-    var xito: Int = tempOPEXtools.largerOf(ix, x);
-    
-    breakable{ for (ity <- yifrom to yito) {
-      if (!boundCheck(ix, iy)) break;      //break from horizontal PF if no more horiz movement is possible.
-                                           //Else more movement was possible, record it.
-      if (y == iy) break;                  
-      if (y > iy) {move += "d"; iy+=1;}
-      else if (y < iy) {move += "u"; iy-=1;}
-      
-      }
+    if (boundCheck(x, y))""                                                                                             //If out of bounds, return nothing.
+    var targetX = x;
+    var targetY = y;
+
+    val moveVer = calcSuggestMoveVerticalPriority(x,y);
+
+    if (moveVer._2 == (targetX, targetY)) {
+      return moveVer._1;                                                                                                //vertical priority was addequate
     }
-  
-    breakable{ for (itx <- xifrom to xito) {
-      if (!boundCheck(ix, iy)) break;      //break from horizontal PF if no more horiz movement is possible.
-                                           //Else more movement was possible, record it.
-      if (x == ix) break;    
-      if (x > ix) {move += "r"; ix+=1;} 
-      else if (x < ix) {move += "l"; ix-=1;}
-    }}
-    if (!(ix == x && iy == y)) move = ""
-    move
-  }
-    
 
- 
-  /* This method is already implemented. You should not change it */
+    val moveHor = calcSuggestMoveHorizontalPriority(x,y);
+    moveHor._1;
+    }
+
+   /**
+   * Calculates the suggested movement with priority for horizontal movement.
+   * @param targetX
+   * @param targetY
+   * @return movement string to target, using movements following the order
+    *         [horizontal, vertical, horizontal, veritcal]
+   */
+  private def calcSuggestMoveHorizontalPriority(targetX: Int, targetY: Int): (String, (Int, Int)) = {
+    var move = "";
+    var currentX = playerX;
+    var currentY = playerY;
+    var previous: (Int, Int) = (currentX, currentY);
+
+    breakable {
+      while ((currentX != targetX) && (currentY != targetY)) {
+        if (currentX != targetX) {
+          var calc: (String, Int) = partialHorizontalMove((currentX, currentY), targetX);
+          move += calc._1;
+          currentX += calc._2;
+        }
+
+        if (currentY != targetY) {
+          var calc: (String, Int) = partialVerticalMove((currentX, currentY), targetY);
+          move += calc._1;
+          currentY += calc._2;
+        }
+
+        if (previous == (currentX, currentY)) break; //If no move was made, don't continue. Move cannot be made.
+        previous = (currentX, currentY)
+      }}
+    (move, (currentX, currentY))
+    }
+
   /**
-	 * Sets the savePos to the values of the parameters. This method is
-	 * for testing only. Normally, save() is used for this purpose.
- 	 */
-  def setSavePos(saveX: Int, saveY: Int): Unit =  {
-    this.saveX=saveX
-    this.saveY=saveY
+   * Calculates the suggested movement with priority for vertical movement.
+   * @param targetX
+   * @param targetY
+   * @return movement string to target, using movements following the order
+   *         [vertical, horizontal, veritcal, horizontal]
+   */
+  private def calcSuggestMoveVerticalPriority(targetX: Int, targetY: Int): (String, (Int, Int)) = {
+      var move = "";
+      var currentX = playerX;
+      var currentY = playerY;
+      var previous: (Int, Int) = (currentX, currentY);
+
+      breakable {
+        while ((currentX != targetX) && (currentY != targetY)) {
+          if (currentY != targetY) {
+            var calc: (String, Int) = partialVerticalMove((currentX, currentY), targetY);
+            move += calc._1;
+            currentY += calc._2;
+          }
+
+          if (currentX != targetX) {
+            var calc: (String, Int) = partialHorizontalMove((currentX, currentY), targetX);
+            move += calc._1;
+            currentX += calc._2;
+          }
+
+          if (previous == (currentX, currentY)) break; //If no move was made, don't continue. Move cannot be made.
+          previous = (currentX, currentY)
+        }}
+      (move, (currentX, currentY))
   }
-  
+
+  /**
+   * Calculates a partial move along the vertical axis.
+   * @param position starting Y position
+   * @param to target Y position
+   * @return move string to move to target on the vertical axis.
+   */
+  private def partialVerticalMove(position: (Int, Int), to: Int): (String, Int) ={
+    partialAxisMove(position, to, 'd', 'u', Axis.VERTICAL);
+  }
+
+  /**
+   * Calculates a partial move along the horizontal axis.
+   * @param position starting X position
+   * @param to target X position
+   * @return move string to move to target on the horizontal axis.
+   */
+  private def partialHorizontalMove(position: (Int, Int), to: Int): (String, Int) ={
+    partialAxisMove(position, to, 'r', 'l', Axis.HORIZONTAL);
+  }
+
+  /**
+   * Calculates a single axis, single direction move from one point to another, including boundary detection.
+   *
+   * @param position - 2d starting location
+   * @param axisTarget - on axis target
+   * @param positive - character to indicate a positive move
+   * @param negative - character to indicate a negative move
+   * @param axis - axis of move, horizontal or vertical.
+   * @apinote: for positive, negative, and axis, use literals defined in this.Axis.
+   * @return move string for a single axis using positive and negative chars provided to reach target.
+   */
+  private def partialAxisMove(position: (Int, Int), axisTarget: Int, positive: Char, negative: Char, axis: Int): (String, Int) ={
+    var move = "";                                                                                                      //result store
+    val from = if (axis == Axis.VERTICAL) position._2 else position._1;
+    var direction: Int = if (tempOPEXtools.largerOf(from, axisTarget) == from) Axis.NEGATIVE else Axis.POSITIVE;        //Determin direction of travel within axis.
+    var oPosition: (Int, Int) = position;                                                                               //Open scope of indexables for boundary testing.
+    var oitt: Int = 0;                                                                                                  //open scope of itterator
+    val rel = if (from < axisTarget) 1 else - 1
+    breakable{
+      for (itt <- from to axisTarget by rel) {
+        oPosition = getNextPosition(position._1, position._2, axis, direction);
+        oitt = itt;
+      if (!boundCheck(position._1, position._2)) break;                                                                 //break from horizontal PF if no more movement is possible.
+      move += (if (direction == Axis.POSITIVE) positive else negative);                                                 //Else more movement was possible, record it.
+
+      if (axis == Axis.VERTICAL){                                                                                       //If we're at the target, break
+        if (axisTarget == position._1) break;
+      } else if (axis == Axis.HORIZONTAL) {
+        if (axisTarget == position._2) break;
+      }
+
+                                                //Get position for next itteration.
+    }}
+    if (move != "") {move = move.substring(0, move.length - 1); }                                                       //I don't like this, but it's easier than reducing a gap between ints, requireing calculations of directions and whatnot. It will always do one itteration extra, but at least  that's predictable enough to manage retrospectivly here.
+    (move, (if (direction == Axis.POSITIVE) oitt else oitt * -1))                                                       //No more movement is possible, return.,
+  }
+
+  /**
+   * Determine the next x y using the axis of travel and positive/negative correlation.
+   * @param x position
+   * @param y position
+   * @param axis of travel, Axis.VERTICAL, Axis.HORIZONTAL
+   * @param direction of travel, Axis.POSITIVE,
+   * @return
+   */
+  def getNextPosition(x: Int, y: Int, axis: Int, direction: Int): (Int, Int) = {
+    var ox = x;
+    var oy = y;
+
+    if (axis == Axis.HORIZONTAL) {
+      if (direction == Axis.POSITIVE) {
+        ox += 1;
+      } else if (direction == Axis.NEGATIVE) {
+        ox += -1;
+      } else {
+        //TODO invalid direction
+      }
+
+    } else if (axis == Axis.VERTICAL) {
+      if (direction == Axis.POSITIVE) {
+        oy += 1;
+      } else if (direction == Axis.NEGATIVE) {
+        oy += -1;
+      } else {
+        //TODO invalid direction
+      }
+
+    } else {
+      //TODO invalid axis
+    }
+
+    (ox, oy);
+  }
+
+  /**
+   * Rasters the field, player position, bounties etc to both the client window and console.
+   */
   def render(){
-
-
-    if (scalaGame.clientWindow != null){
-      scalaGame.clientWindow.txtTerminal.setText(null);
-      scalaGame.clientWindow.txtTerminal.append("Score: " + getScore());}
+    System.out.println("=====================")
+    if (GameClient.clientWindow != null){
+      GameClient.clientWindow.txtTerminal.setText(null);
+      GameClient.clientWindow.txtTerminal.append("Score: " + getScore());}
 
     for (y <- 0 to 9){
       var line: String = "";
@@ -451,8 +607,9 @@ class Game(wall: List[(Int, Int)], bounty: List[(Int,Int, Int=> Int)], var playe
           line += "[  ]"
         }
         }}
-      if (scalaGame.clientWindow != null){
-      scalaGame.clientWindow.txtTerminal.append("\n" + line);}
+      if (GameClient.clientWindow != null){
+      GameClient.clientWindow.txtTerminal.append("\n" + line);}
+      System.out.println(line);
     }
   } 
 }
@@ -471,9 +628,9 @@ object GameProducer{
  	 * - the player in position 0,0
 	 */
   def initialiseTest1(): Game = {
-    scalaGame.assertInitialised();
-    scalaGame.gameSuper = new Game(List((3,0),(3,1),(3,2)), List((4,1,(x: Int)=>x+5),(3,3,(x: Int)=>x+10)), 0, 0)
-    return scalaGame.gameSuper;
+    GameClient.assertInitialised();
+    GameClient.gameSuper = new Game(List((3,0),(3,1),(3,2)), List((4,1, (x: Int)=>x+5),(3,3, (x: Int)=>x+10)), 0, 0)
+    return GameClient.gameSuper;
   }
 
   /**
@@ -484,9 +641,9 @@ object GameProducer{
  	 * - the player in position 3,2
 	 */
   def initialiseTest2(): Game = {
-    scalaGame.assertInitialised();
-    scalaGame.gameSuper = new Game(List((3,3),(3,4),(3,5),(5,3),(5,4),(5,5)), List((4,4,(x: Int)=>x+1),(6,3,(x: Int)=>if(x == 0) x+1 else x+3)), 3, 2)
-    return scalaGame.gameSuper;
+    GameClient.assertInitialised();
+    GameClient.gameSuper = new Game(List((3,3),(3,4),(3,5),(5,3),(5,4),(5,5)), List((4,4, (x: Int)=>x+1),(6,3, (x: Int)=>if(x == 0) x+1 else x+3)), 3, 2)
+    return GameClient.gameSuper;
   }
 
   /**
@@ -497,9 +654,9 @@ object GameProducer{
  	 * - the player in position 4,1
 	 */
   def initialiseTest3(): Game = {
-    scalaGame.assertInitialised();
-    scalaGame.gameSuper = new Game(List((3,0),(3,1),(3,2)), List((4,1,(x: Int)=>x+5),(3,3,(x: Int)=>x+10)), 4, 1)
-    return scalaGame.gameSuper;
+    GameClient.assertInitialised();
+    GameClient.gameSuper = new Game(List((3,0),(3,1),(3,2)), List((4,1, (x: Int)=>x+5),(3,3, (x: Int)=>x+10)), 4, 1)
+    return GameClient.gameSuper;
   }
 }
 
@@ -514,19 +671,19 @@ object staticKeyParser {
   val junit = new JUnitCore
 
   def au() {
-    scalaGame.gameSuper.au()
+    GameClient.gameSuper.au()
   }
 
   def ad() {
-    scalaGame.gameSuper.ad()
+    GameClient.gameSuper.ad()
   }
 
   def al() {
-    scalaGame.gameSuper.al()
+    GameClient.gameSuper.al()
   }
 
   def ar() {
-    scalaGame.gameSuper.ar()
+    GameClient.gameSuper.ar()
   }
 
   /*
@@ -540,7 +697,7 @@ object staticKeyParser {
     junit.addListener(new RunListener{
       override def testRunFinished(res: Result) = {
         OPEXConsole.internalLog("JUnit test completed. passed: " + res.wasSuccessful() + ", " + res.getFailureCount + " failures");
-        scalaGame.clientWindow.txtJUnit.setText("passed junit test: " + res.wasSuccessful() + ", " + res.getFailureCount + " failures");
+        GameClient.clientWindow.txtJUnit.setText("passed junit test: " + res.wasSuccessful() + ", " + res.getFailureCount + " failures");
     }})
     OPEXConsole.internalLog("User invoked JUnit test.");
     junit.run(classOf[GameTest])

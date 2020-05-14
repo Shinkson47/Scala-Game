@@ -13,20 +13,22 @@ import com.shinkson47.ScalaGame.Game.{Game, GameProducer, staticKeyParser}
 import com.shinkson47.ScalaGame._
 
 /**
- * Static scala game client class.
- *
- * @See https://github.com/Shinkson47/Scala-Snake
+ * Instantiable scala game client class.
+ * When operating, a static reference to the client instance
+ * can be found at OPEX.getGameSuper();
  *
  * Houses, displays, and interacts with instances of the Game class.
  *
  * Built using my custom gaming library, OPEX (Open Phoenix Engine) to provide tools
- * for form management, key binding, update events and error management.
+ * for form management, thread management, key binding, update events and error management, etc.
+ * @See https://github.com/Shinkson47/Scala-Snake
  * @See https://github.com/Shinkson47/OPEX
  * @Author Jordan Tyler Gray, P2540338
- * @Extends OPEXGame, runnable game interface for the engine framework.
- * @Extends OPEXHook, hook interface for engine's update loop.
+ * @Extends OPEXGame, interface this class as a game client for OPEX.
+ * @Extends OPEXHook, hook interface for engine's update thread to provide constant updates.
+ * TODO is hook required?
  */
-object scalaGame extends OPEXGame with OPEXHook {
+object GameClient extends OPEXGame with OPEXHook  {
   /**
    * @Extends OPEXVersionable, from OPEXGame.
    * Indicates the date based version of scala game.
@@ -35,34 +37,26 @@ object scalaGame extends OPEXGame with OPEXHook {
   override def VERSION(): String = "2020.5.10.A"
 
   /**
-   *  Displayable game window
+   *  Local reference to displayable game window inside OPEX.
    */
   var gameWindow: OPEXWindow = null;
 
   /**
-   * Content pane for the game window
+   * Local instance of the client window class for displaying inside the game window.
    */
   var clientWindow: ClientWindow = null;
 
   /**
-   * Current game instance
-   */
-   var gameSuper: Game = null;
-
-  /**
    * Key binding specification,
-   * Using OPEX tools, binds key presses directly to a method.
+   * Using OPEX tools, this specification binds key presses directly to methods.
    */
   var keyspec: OPEXKeyBindingSpec = null;                                                                               //defined in startup routine.
 
+
   /**
-   * jre entry point. Missed in JUnit.
-   * Not used to directly execute anything, just to assert the engine is initalised.
-   * OPEX will take over to start the client.
+   * Current game instance in use by the client.
    */
-  def main(args: Array[String]): Unit = {
-    assertInitialised()                                                                                                 //Start engine with this class.
-  }
+   var gameSuper: Game = null;
 
    /**
    * OPEX game payload entry point.
@@ -70,6 +64,7 @@ object scalaGame extends OPEXGame with OPEXHook {
    * payload is created with this class. This method implements java's runnable, and
    * is ran when in the payload thread. It's OPEX's intended entry point for
    * game code.
+    * @Extends java.lang.runnable, OPEXGame
    */
   def run(): Unit = {
     StartupRoutine();                                                                                                   //Call for snakeGames's startup routine.
@@ -82,9 +77,11 @@ object scalaGame extends OPEXGame with OPEXHook {
   };
 
   /**
-   * Snake's startup routine
+   * Snake Client's startup routine.
    */
   def StartupRoutine(): Unit = {
+    //TODO allow static key spec, only define the keyspec if it hasn't been defined yet.
+
      /*
       * Configure Engine.
       *
@@ -96,8 +93,10 @@ object scalaGame extends OPEXGame with OPEXHook {
      EMSHelper.setAllowEIS(false);                                                                                      //Disable Error Induced Shutdowns
      EMSHelper.setAllowCascadeDetection(false);                                                                         //Disable cascade detection
      EMSHelper.setAllowErrNofif(false);                                                                                 //Disable notifications of errors.
+
+
     /*
-     * prequisites
+     * Client prequisites
      */
     gameSuper = GameProducer.initialiseTest2()                                                                          //Create a new game. gameSuper is required for key binding, so it has to be done early.
     keyspec = new OPEXKeyBindingSpec();                                                                                 //Create key spec for the window
@@ -111,9 +110,9 @@ object scalaGame extends OPEXGame with OPEXHook {
     keyspec.addBind(KeyEvent.VK_F4, staticKeyParser.getClass.getDeclaredMethod("runJUnit"), staticKeyParser);
 
     /*
-     *  Create and configure window
+     *  Create, configure, and display window.
      */
-    gameWindow = OPEXWindowHelper.newWindow(new ContentWindow(), "Snake", false);                                   //Create window for the client, keep it publicly available. Default not visible, content pane needs to change first.
+    gameWindow = OPEXWindowHelper.newWindow(new ContentWindow(), "Snake", false);                         //Create window for the client, keep it publicly available. Default not visible, content pane needs to change first.
     clientWindow = new ClientWindow();                                                                                  //Create a content pane using the predefined form.
     gameWindow.setContentPane(clientWindow.clientPanelMain);                                                            //OPEX does not yet support providing a content pane in place of a renderer, so it has to be done manually.
     gameWindow.addKeyListener(keyspec);                                                                                 //Add keyspec to window
@@ -121,29 +120,32 @@ object scalaGame extends OPEXGame with OPEXHook {
     gameWindow.setVisible(true);                                                                                        //Now it can be made visible.
     gameWindow.setLocationRelativeTo(null);                                                                             //Centre on screen TODO OPEX automatically centre to screen.
 
-    OPEXHookUpdater.registerUpdateHook(this, "scalaGameClient");                                          //Add this the client to OPEX's hook updater for game updates.
+    OPEXHookUpdater.registerUpdateHook(this, "scalaGameClient");                                          //Add this the client to OPEX's hook updater for game updates. TODO update hook is not used
 
-    gameSuper.render();
+    gameSuper.render();                                                                                                 //Cause render of first frame.
   }
 
   /*
    * For compatability with JUnit, this method was merged into the test preperations to ensure the game had been initialised before performing tests,
-   * since JUnit does not perform any initialisation by default, and i can't risk changing the test class, then moderation using thier own junit test classes.
+   * since JUnit does not perform any initialisation by default, but i need to ensure that the engine is running;
+   *  and i can't risk changing the test class, then moderation using thier own junit test classes.
    */
   /**
    * Ensure that the engine has been started, and an client is available to load games.
    */
-  def assertInitialised(){
-    if (!OPEX.isRunning()){
+  def assertInitialised(){ //TODO merge assert initialised into opex
+    if (OPEX.isRunnable()){                                                                                             //Is OPEX running?
      /*
       * pre engine start prequisites
       */
-      Splash.setDisplayMultiplyer(2L);//TODO mis-spelt method name in engine
+      Splash.setDisplayMultiplyer(2L);//TODO mis-spelt method name in engine                                            //Set minimum display time for the splash screen.
+      OPEX.waitForStartup();                                                                                            //Causes the engine to wait for engine startup in the call below before returning.
 
       /*
        * ready to start engine
        */
      new OPEX(this);                                                                                             //Main OPEX engine startup call.
+
     }
   }
 
